@@ -25,8 +25,8 @@ async function main() {
     });
   });
 
-  // Everything else — pages, API routes — goes to Next.js
-  app.all('*', (req, res) => handle(req, res));
+  // Everything else — pages, API routes — goes to Next.js (Express 5 compatible)
+  app.use((req, res) => handle(req, res));
 
   const httpServer = http.createServer(app);
   attachSocketServer(httpServer);
