@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export interface FileValidationResult {
   isValid: boolean;
@@ -48,12 +49,25 @@ export class CloudflareR2StorageService implements IObjectStorageService {
   private bucket?: string;
   private accessKeyId?: string;
   private secretAccessKey?: string;
+  private s3Client?: S3Client;
 
   constructor() {
-    this.endpoint = process.env.R2_ENDPOINT;
+    const accountId = process.env.R2_ACCOUNT_ID;
+    this.endpoint = process.env.R2_ENDPOINT || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
     this.bucket = process.env.R2_BUCKET_NAME;
     this.accessKeyId = process.env.R2_ACCESS_KEY_ID;
     this.secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+
+    if (this.isConfigured()) {
+      this.s3Client = new S3Client({
+        region: 'auto',
+        endpoint: this.endpoint,
+        credentials: {
+          accessKeyId: this.accessKeyId!,
+          secretAccessKey: this.secretAccessKey!,
+        },
+      });
+    }
   }
 
   isConfigured(): boolean {
@@ -61,10 +75,19 @@ export class CloudflareR2StorageService implements IObjectStorageService {
   }
 
   async upload(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
-    if (!this.isConfigured()) {
+    if (!this.isConfigured() || !this.s3Client || !this.bucket) {
       throw new Error('R2 Object Storage is not fully configured in environment variables');
     }
-    // Production R2 S3 PutObject integration URL
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: filename,
+      Body: buffer,
+      ContentType: mimeType,
+    });
+
+    await this.s3Client.send(command);
+
     const publicBase = process.env.R2_PUBLIC_URL || `https://${this.bucket}.r2.cloudflarestorage.com`;
     return `${publicBase}/${filename}`;
   }
@@ -94,7 +117,7 @@ export async function saveMediaFile(
   const ext = path.extname(originalFilename) || '.jpg';
   const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
 
-  // 4. Use R2 Object Storage if configured, otherwise fallback to local public/uploads storage
+  // 4. In production or whenever R2 is configured, uploads MUST go to Cloudflare R2
   const r2Service = new CloudflareR2StorageService();
   if (r2Service.isConfigured()) {
     const r2Url = await r2Service.upload(buffer, uniqueName, magicCheck.detectedMime || declaredMimeType);
@@ -105,7 +128,12 @@ export async function saveMediaFile(
     };
   }
 
-  // Local storage fallback for seamless local testing
+  // In production, NEVER write to ephemeral local disk — R2 is strictly required
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Production media storage error: Cloudflare R2 is required in production but missing required environment variables (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL). Local disk storage is disabled in production.');
+  }
+
+  // Local storage fallback ONLY for local development (NODE_ENV !== 'production')
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
