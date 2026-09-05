@@ -140,7 +140,7 @@ export async function saveMediaFile(
   // If R2 is not configured, log a one-time warning and fall back to local disk
   warnR2FallbackOnce();
 
-  // Local storage fallback
+  // Local storage fallback (Note: on Render free tier, files in public/uploads are ephemeral and reset on container restart)
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
