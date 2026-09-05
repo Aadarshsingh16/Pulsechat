@@ -108,6 +108,33 @@ export function useSocket() {
       setUserOnline(userId, isOnline);
     });
 
+    socket.on('conversation:memberAdded', async ({ conversationId, newMember, participants }) => {
+      console.log('👥 [Socket.IO] Member added to conversation:', conversationId, newMember);
+      const chatStore = useChatStore.getState();
+      const existing = chatStore.conversations.find((c) => c.id === conversationId);
+
+      if (existing) {
+        if (participants && participants.length > 0) {
+          chatStore.updateConversationParticipants(conversationId, participants as any);
+        } else if (newMember) {
+          chatStore.addParticipantToConversation(conversationId, newMember as any);
+        }
+      } else {
+        // If this user was added to a group not yet in their sidebar, fetch and add it immediately
+        try {
+          const res = await fetch(`/api/conversations/${conversationId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.conversation) {
+              chatStore.setConversations([data.conversation, ...chatStore.conversations]);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch newly joined group conversation:', e);
+        }
+      }
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;

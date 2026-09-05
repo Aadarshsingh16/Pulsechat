@@ -20,6 +20,7 @@ interface ChatState {
   updateMessageStatus: (clientTempId: string, serverId: string, status: any, conversationId?: string, userId?: string, lastReadAt?: string) => void;
   markConversationRead: (conversationId: string) => void;
   updateConversationParticipants: (conversationId: string, participants: UserSummary[]) => void;
+  addParticipantToConversation: (conversationId: string, participant: UserSummary) => void;
   setTyping: (conversationId: string, username: string, isTyping: boolean) => void;
   setUserOnline: (userId: string, isOnline: boolean) => void;
   setInitialOnlineUsers: (userIds: string[]) => void;
@@ -171,6 +172,22 @@ export const useChatStore = create<ChatState>((set) => ({
       conversations: state.conversations.map((c) =>
         c.id === conversationId ? { ...c, participants } : c
       ),
+    })),
+
+  addParticipantToConversation: (conversationId, participant) =>
+    set((state) => ({
+      conversations: state.conversations.map((c) => {
+        if (c.id === conversationId) {
+          const current = c.participants || [];
+          if (current.some((p) => p.id === participant.id)) return c;
+          return {
+            ...c,
+            isGroup: true,
+            participants: [...current, participant],
+          };
+        }
+        return c;
+      }),
     })),
 
   setTyping: (conversationId, username, isTyping) =>

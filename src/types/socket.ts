@@ -60,6 +60,18 @@ export interface ServerToClientEvents {
     isOnline: boolean;
     lastSeenAt: string;
   }) => void;
+  'conversation:memberAdded': (payload: {
+    conversationId: string;
+    newMember: { id: string; username: string; displayName?: string; avatarUrl?: string | null };
+    participants?: Array<{
+      id: string;
+      username: string;
+      displayName: string;
+      avatarUrl: string | null;
+      lastSeenAt?: string;
+      lastReadAt?: string;
+    }>;
+  }) => void;
   error: (payload: { code: string; message: string; clientTempId?: string }) => void;
 }
 

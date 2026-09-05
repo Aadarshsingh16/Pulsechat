@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { verifySessionToken, AUTH_COOKIE_NAME } from '@/lib/auth';
+import { getIO } from '../../../../../../server/index';
+import { PresenceService } from '../../../../../../server/services/presence';
 
 const AddParticipantsSchema = z.object({
   userIds: z.array(z.string()).min(1, 'At least one user is required'),
@@ -141,6 +143,46 @@ export async function POST(
       lastReadAt: p.lastReadAt.toISOString(),
     }));
 
+    // Real-time broadcast to conversation and joining sockets
+    if (newUsersToAdd.length > 0) {
+      try {
+        const socketServer = getIO();
+        if (socketServer) {
+          const newlyAddedMembers = formatted.filter((p) => newUsersToAdd.includes(p.id));
+
+          for (const newMember of newlyAddedMembers) {
+            // Join active sockets for the new member into this conversation room immediately
+            const theirSocketIds = PresenceService.getSocketIds(newMember.id);
+            theirSocketIds?.forEach((socketId) => {
+              const clientSocket = socketServer.sockets.sockets.get(socketId);
+              if (clientSocket) {
+                clientSocket.join(`conversation:${conversationId}`);
+              }
+            });
+
+            const eventPayload = {
+              conversationId,
+              newMember: {
+                id: newMember.id,
+                username: newMember.username,
+                displayName: newMember.displayName,
+                avatarUrl: newMember.avatarUrl,
+              },
+              participants: formatted,
+            };
+
+            // Broadcast to the conversation room for existing members
+            socketServer.to(`conversation:${conversationId}`).emit('conversation:memberAdded', eventPayload);
+
+            // Also broadcast directly to the new member's personal user room
+            socketServer.to(`user:${newMember.id}`).emit('conversation:memberAdded', eventPayload);
+          }
+        }
+      } catch (sockErr) {
+        console.error('Socket emission error in add participants route:', sockErr);
+      }
+    }
+
     return NextResponse.json({ success: true, participants: formatted });
   } catch (error) {
     console.error('Error adding participants:', error);
@@ -202,3 +244,4 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to leave group' }, { status: 500 });
   }
 }
+

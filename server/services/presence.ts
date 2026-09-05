@@ -1,9 +1,13 @@
 import { prisma } from '../../src/lib/prisma';
 
-// In-memory multi-tab / multi-device socket registry
-// userId -> Set<socketId>
-const userSockets = new Map<string, Set<string>>();
-const disconnectTimers = new Map<string, NodeJS.Timeout>();
+// In-memory multi-tab / multi-device socket registry shared across bundles
+const userSockets: Map<string, Set<string>> =
+  (globalThis as any).__pulsechat_userSockets || new Map();
+(globalThis as any).__pulsechat_userSockets = userSockets;
+
+const disconnectTimers: Map<string, NodeJS.Timeout> =
+  (globalThis as any).__pulsechat_disconnectTimers || new Map();
+(globalThis as any).__pulsechat_disconnectTimers = disconnectTimers;
 
 export class PresenceService {
   static addSocket(userId: string, socketId: string): boolean {
@@ -60,5 +64,10 @@ export class PresenceService {
 
   static getOnlineUserIds(): string[] {
     return Array.from(userSockets.keys());
+  }
+
+  static getSocketIds(userId: string): string[] {
+    const sockets = userSockets.get(userId);
+    return sockets ? Array.from(sockets) : [];
   }
 }

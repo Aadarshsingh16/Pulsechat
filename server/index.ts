@@ -6,12 +6,17 @@ import { registerMessageHandlers } from './handlers/message';
 
 export let io: Server;
 
+export function getIO(): Server | undefined {
+  return (globalThis as any).__pulsechat_io || io;
+}
+
 export function attachSocketServer(httpServer: HttpServer) {
   io = new Server(httpServer, {
     cors: { origin: true, credentials: true },
     pingTimeout: 20000,
     pingInterval: 25000,
   });
+  (globalThis as any).__pulsechat_io = io;
 
   // Enforce authentication on WebSocket handshake
   io.use(socketAuthMiddleware);
