@@ -61,6 +61,7 @@ Designed with an editorial luxury aesthetic (warm ivory paper `#FAF8F5`, obsidia
 - **Pre-Send Image Preview Card**: Clicking the image picker displays a floating preview card showing the image thumbnail, file name, and size with an `(X)` cancel button.
 - **Caption Support**: Users can add an optional caption in the input dock; captions are saved to the database and displayed beneath the media.
 - **Async Decoding without Lazyload Deadlocks**: Images use `decoding="async"` to prevent main-thread stuttering. Unlike naive implementations that use `display: none` before load (which breaks browser lazy loading), images maintain DOM layout presence (`opacity-0 absolute` until loaded) with an explicit fallback card on network error.
+- **Media Storage in Demo Deployment**: Media storage uses local disk for this demo deployment. The codebase includes a complete Cloudflare R2 adapter (`src/lib/storage.ts`) for production use; it was not activated here since R2 requires billing verification even on its free tier.
 
 ### 4. Single-Pane Responsive Mobile Layout
 - **Desktop (`>= 768px`)**: Split-pane view with fixed sidebar (`md:w-96`) and chat viewport (`flex-1 min-w-0`).

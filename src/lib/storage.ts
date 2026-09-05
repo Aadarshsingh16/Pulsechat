@@ -93,6 +93,15 @@ export class CloudflareR2StorageService implements IObjectStorageService {
   }
 }
 
+let hasLoggedStorageWarning = false;
+
+function warnR2FallbackOnce() {
+  if (!hasLoggedStorageWarning) {
+    hasLoggedStorageWarning = true;
+    console.warn('[Storage] R2 not configured — falling back to local disk storage. Uploaded images will not persist across redeploys.');
+  }
+}
+
 export async function saveMediaFile(
   buffer: Buffer,
   originalFilename: string,
@@ -128,12 +137,10 @@ export async function saveMediaFile(
     };
   }
 
-  // In production, NEVER write to ephemeral local disk — R2 is strictly required
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Production media storage error: Cloudflare R2 is required in production but missing required environment variables (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL). Local disk storage is disabled in production.');
-  }
+  // If R2 is not configured, log a one-time warning and fall back to local disk
+  warnR2FallbackOnce();
 
-  // Local storage fallback ONLY for local development (NODE_ENV !== 'production')
+  // Local storage fallback
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
