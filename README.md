@@ -1,11 +1,7 @@
 # PulseChat — Enterprise Real-Time Messaging Platform
 
-> **Live Demo:** [https://pulsechat-demo.onrender.com](https://pulsechat-demo.onrender.com) *(Update with your deployed URL)*
-
-> [!NOTE]
-> **Reviewer Note on Cold Starts**: On free-tier cloud hosts (e.g. Render), the web service spins down after 15 minutes of inactivity. First load after spin-down may take **20–30 seconds** while the container provisions and the in-process MobileNetV2 moderation model preloads its weights (~12.7s one-time initialization). Subsequent requests and WebSocket messages respond instantly.
-
 ---
+
 
 PulseChat is an enterprise-grade real-time messaging application built with **Next.js 16 (App Router)**, **TypeScript (Strict Mode)**, **Tailwind CSS**, **Prisma ORM**, and a dedicated **Socket.IO Real-Time Engine**.
 
@@ -168,66 +164,6 @@ Open two browser windows to test real-time delivery and read receipts:
 | :--- | :--- | :--- | :--- |
 | **Window 1 (Normal)** | **Alice Cooper** | `alice@pulsechat.io` | `Password123!` |
 | **Window 2 (Incognito)** | **Bob Vance** | `bob@pulsechat.io` | `Password123!` |
-
----
-
-## ☁️ Free Cloud Deployment Guide ($0 / Month)
-
-PulseChat can be deployed completely free using modern cloud tiers:
-
-### Option A: Render.com (Recommended — Single Host, 100% Free)
-
-This is the recommended deployment path because running both Next.js and Socket.IO on the same host avoids cross-origin cookie restrictions.
-
-1. **Database Setup**:
-   - Create a free PostgreSQL instance on [Render.com](https://render.com).
-   - In `prisma/schema.prisma`, change `provider = "sqlite"` to `provider = "postgresql"`.
-   - Add the `DATABASE_URL` environment variable in your Render dashboard.
-2. **Persistent Media Storage (Cloudflare R2)**:
-   - *Note*: Render's free web service disk is **ephemeral** — local file storage (`public/uploads/`) is cleared on container restarts or redeploys.
-   - For permanent media persistence across redeploys, configure Cloudflare R2 (10GB free tier, $0 egress fees) by setting the following environment variables:
-     ```env
-     R2_ACCOUNT_ID=your_cloudflare_account_id
-     R2_ACCESS_KEY_ID=your_access_key
-     R2_SECRET_ACCESS_KEY=your_secret_key
-     R2_BUCKET_NAME=your_bucket_name
-     R2_PUBLIC_URL=https://your-custom-or-r2-domain.com
-     ```
-3. **Web Service Configuration**:
-   - Connect your GitHub repository to Render as a **Web Service** (Node environment).
-   - **Build Command**:
-     ```bash
-     npm install && npx prisma generate && npx prisma db push && npm run build
-     ```
-   - **Start Command**:
-     ```bash
-     npm start
-     ```
-     *(Executes `concurrently` running the pre-compiled `next start` production server on port 3000 and the real-time Socket.IO daemon on port 3001).*
-   - Set environment variables:
-     - `NODE_ENV=production`
-     - `JWT_SECRET=your_super_secret_jwt_key`
-     - `NEXT_PUBLIC_APP_URL=https://your-service-name.onrender.com`
-     - `NEXT_PUBLIC_SOCKET_URL=https://your-service-name.onrender.com`
-
----
-
-### Option B: Split Architecture (Vercel + Render / Railway — Advanced)
-
-> [!WARNING]
-> **Cross-Origin Cookie Requirement**: The application uses `HttpOnly; SameSite=Lax` cookies for session management. In a split deployment where the frontend is on Vercel (`.vercel.app`) and the WebSocket server is on Render/Railway (`.onrender.com`), browsers will **not** send the `SameSite=Lax` cookie in cross-origin WebSocket handshakes.
->
-> To use this architecture, you must:
-> 1. Set `SameSite=None; Secure` on the session cookie in `src/lib/auth.ts`.
-> 2. Configure the Socket.IO server CORS with the explicit Vercel origin and `credentials: true` (wildcards `*` are disallowed with credentials).
-> 3. Ensure the client initializes Socket.IO with `withCredentials: true`.
->
-> For a simple, zero-friction setup, **Option A** is strongly recommended.
-
-1. **Frontend**: Deploy Next.js to **Vercel** (Free Hobby plan).
-2. **WebSockets**: Deploy `server/index.ts` to **Render** or **Railway** (free tier with persistent connections). Set `NEXT_PUBLIC_SOCKET_URL` in Vercel to your WebSocket URL.
-3. **Database**: Free serverless PostgreSQL on **Neon.tech** or **Supabase**.
-4. **Media Storage**: **Cloudflare R2** (10GB free tier, 0 egress fees).
 
 ---
 
