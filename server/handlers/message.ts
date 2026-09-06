@@ -1,6 +1,9 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../../src/lib/prisma';
+import fs from 'fs';
+import path from 'path';
 import { moderateText } from '../../src/lib/moderation/textModerator';
+import { defaultImageModerator } from '../../src/lib/moderation/imageModerator';
 import { MessagePayload } from '../../src/types/chat';
 import { CURATED_GIFS } from '../../src/app/api/gifs/route';
 
@@ -158,6 +161,66 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
               (g) => g.title.toLowerCase() === content?.toLowerCase() || g.id === content
             );
             if (match) resolvedMediaUrl = match.url;
+          }
+        }
+
+        // Synchronous Server-Side Image Moderation (NSFWJS MobileNetV2)
+        // Requirement 1: Run uploaded images through nudity/explicit content detection before delivery
+        if (type === 'IMAGE') {
+          if (!resolvedMediaUrl) {
+            if (callback) callback({ success: false, error: 'Missing media URL for image message' });
+            return;
+          }
+
+          try {
+            let imgBuffer;
+            let contentType = 'image/jpeg';
+
+            if (resolvedMediaUrl.startsWith('http://') || resolvedMediaUrl.startsWith('https://')) {
+              const imgRes = await fetch(resolvedMediaUrl);
+              if (!imgRes.ok) {
+                if (callback) callback({ success: false, error: 'Failed to retrieve image for moderation check' });
+                return;
+              }
+              imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+              contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+            } else if (resolvedMediaUrl.startsWith('/')) {
+              const localPath = path.join(process.cwd(), 'public', resolvedMediaUrl);
+              if (fs.existsSync(localPath)) {
+                imgBuffer = await fs.promises.readFile(localPath);
+              } else {
+                if (callback) callback({ success: false, error: 'Local image asset not found' });
+                return;
+              }
+            } else {
+              if (callback) callback({ success: false, error: 'Invalid image URL format' });
+              return;
+            }
+
+            const modResult = await defaultImageModerator.moderate(imgBuffer, contentType);
+            if (!modResult.isSafe) {
+              console.warn(
+                `[ImageModeration] Rejected explicit image: ${modResult.reason} (Latency: ${modResult.inferenceLatencyMs}ms)`
+              );
+              if (callback) {
+                callback({
+                  success: false,
+                  error: 'This image was flagged by our content moderation system and was not sent.',
+                  isModerated: true,
+                  moderationReason: modResult.reason || 'Flagged explicit visual content',
+                });
+              }
+              return; // Blocked before delivery: not persisted, not broadcast
+            }
+          } catch (modErr) {
+            console.error('[ImageModeration] Error during image moderation execution:', modErr);
+            if (callback) {
+              callback({
+                success: false,
+                error: 'Image moderation check failed to execute safely',
+              });
+            }
+            return;
           }
         }
 
