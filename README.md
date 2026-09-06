@@ -167,25 +167,14 @@ Visit [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 📦 Cloud Deployment Guide (Render.com)
+## ☁️ Cloud Deployment & Infrastructure Technologies
 
-1. **Repository:** Connect your GitHub repository to [Render.com](https://render.com) as a **Web Service** (Node environment).
-2. **Build Command:**
-   ```bash
-   npm install --include=dev && npx prisma generate && npx prisma db push && npm run build
-   ```
-3. **Start Command:**
-   ```bash
-   npm run start
-   ```
-4. **Environment Variables:**
-   - `NODE_ENV=production`
-   - `DATABASE_URL=postgresql://...`
-   - `JWT_SECRET=your_secret`
-   - `GIPHY_API_KEY=your_giphy_key`
-   - `CLOUDINARY_CLOUD_NAME=...`
-   - `CLOUDINARY_API_KEY=...`
-   - `CLOUDINARY_API_SECRET=...`
+PulseChat is architected for zero-downtime, stateless cloud deployment across the following managed cloud technologies:
+
+- **Compute & Real-Time Engine (Render.com):** Unified Node.js Web Service running Next.js 15 App Router and Socket.IO on a single port via a custom Express/HTTP server (`server.ts`).
+- **Relational Database (Neon Serverless PostgreSQL):** Managed PostgreSQL database with connection pooling (`pgbouncer`) for high-concurrency real-time query scaling.
+- **Media Storage & Global CDN (Cloudinary):** Direct client-to-cloud signed uploads, ensuring persistent media storage across container restarts.
+- **Rich Media Discovery (Giphy API):** Real-time GIF search integration with PG-13 safety filtering and an offline curated fallback list.
 
 ---
 
