@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { prisma } from '../../src/lib/prisma';
 import { moderateText } from '../../src/lib/moderation/textModerator';
 import { MessagePayload } from '../../src/types/chat';
+import { CURATED_GIFS } from '../../src/app/api/gifs/route';
 
 // In-memory sliding window rate limiter: socketId -> timestamp[]
 const socketRateLimits = new Map<string, number[]>();
@@ -147,6 +148,19 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
         let isModerated = false;
         let moderationReason: string | undefined = undefined;
 
+        // Bulletproof mediaUrl resolution: never store raw text titles as mediaUrl
+        let resolvedMediaUrl = (mediaUrl && mediaUrl.startsWith('http')) ? mediaUrl : null;
+        if (!resolvedMediaUrl && type === 'GIF') {
+          if (content && content.startsWith('http')) {
+            resolvedMediaUrl = content;
+          } else {
+            const match = CURATED_GIFS.find(
+              (g) => g.title.toLowerCase() === content?.toLowerCase() || g.id === content
+            );
+            if (match) resolvedMediaUrl = match.url;
+          }
+        }
+
         // E. Database persistence (SENDER ID IS STRICTLY BOUND TO user.id)
         const savedMessage = await prisma.message.create({
           data: {
@@ -155,8 +169,8 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
             senderId: user.id,
             type,
             content: finalContent,
-            mediaUrl: mediaUrl || (type === 'GIF' && content && content.startsWith('http') ? content : null),
-            thumbnailUrl: mediaUrl || (type === 'GIF' && content && content.startsWith('http') ? content : null),
+            mediaUrl: resolvedMediaUrl,
+            thumbnailUrl: resolvedMediaUrl,
             status: 'SENT',
             isModerated,
             moderationReason,

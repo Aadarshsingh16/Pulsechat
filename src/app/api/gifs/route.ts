@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const CURATED_GIFS = [
+export const CURATED_GIFS = [
   { id: '1', title: 'Celebration Confetti', url: 'https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif', previewUrl: 'https://media.giphy.com/media/26u4cqiYI30juCOGY/200w.gif' },
   { id: '2', title: 'Thumbs Up Approval', url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif', previewUrl: 'https://media.giphy.com/media/111ebonMs90YLu/200w.gif' },
   { id: '3', title: 'Happy Cat Wave', url: 'https://media.giphy.com/media/BzyTuYCmvSORqs1ABM/giphy.gif', previewUrl: 'https://media.giphy.com/media/BzyTuYCmvSORqs1ABM/200w.gif' },
