@@ -14,13 +14,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim().replace(/^["']|["']$/g, '');
+    const apiKey = process.env.CLOUDINARY_API_KEY?.trim().replace(/^["']|["']$/g, '');
+    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim().replace(/^["']|["']$/g, '');
 
     if (!cloudName || !apiKey || !apiSecret) {
       return NextResponse.json(
         { error: 'Cloudinary environment variables not configured on server (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)' },
+        { status: 500 }
+      );
+    }
+
+    if (apiSecret.includes('*')) {
+      return NextResponse.json(
+        { error: 'Cloudinary API Secret is set to masked asterisks (**********). Please copy the actual unmasked API Secret from Cloudinary Console.' },
         { status: 500 }
       );
     }
