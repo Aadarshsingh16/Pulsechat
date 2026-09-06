@@ -356,7 +356,11 @@ export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
         } as any,
         (res: any) => {
           if (res?.success && res.message) {
-            updateMessageStatus(clientTempId, res.message.id, res.message.status);
+            updateMessage(clientTempId, {
+              id: res.message.id,
+              mediaUrl: res.message.mediaUrl || gif.url,
+              status: res.message.status,
+            });
           } else {
             updateMessageStatus(clientTempId, clientTempId, 'FAILED');
           }
@@ -494,16 +498,16 @@ export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
         {/* Dynamic Send Button (Instagram Style) */}
         <button
           onClick={handleSend}
-          disabled={(!content.trim() && !selectedImage) || isUploading}
+          disabled={!content.trim() && !selectedImage}
           className={cn(
             'p-2 rounded-full transition-all duration-150 shrink-0 flex items-center justify-center cursor-pointer',
-            (content.trim() || selectedImage) && !isUploading
+            content.trim() || selectedImage
               ? 'bg-[#18181B] text-white hover:bg-[#C08426] active:scale-90 shadow-xs'
               : 'text-stone-300 cursor-not-allowed opacity-60'
           )}
           title={selectedImage ? 'Send image' : 'Send message'}
         >
-          {isUploading ? (
+          {selectedImage && isUploading ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : (
             <Send className="w-3.5 h-3.5" />
