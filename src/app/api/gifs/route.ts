@@ -11,14 +11,43 @@ export const CURATED_GIFS = [
   { id: '8', title: 'Laughing Dog', url: 'https://media.giphy.com/media/3oEjHAUOqG3lSS0f1C/giphy.gif', previewUrl: 'https://media.giphy.com/media/3oEjHAUOqG3lSS0f1C/200w.gif' },
 ];
 
+const GIPHY_API_KEY = process.env.GIPHY_API_KEY;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = (searchParams.get('q') || '').toLowerCase().trim();
 
+  // No query: show curated defaults (fast, no API call, good empty-state UX)
   if (!query) {
     return NextResponse.json({ gifs: CURATED_GIFS });
   }
 
-  const filtered = CURATED_GIFS.filter((g) => g.title.toLowerCase().includes(query));
+  // Query present + API key configured: real Giphy search
+  if (GIPHY_API_KEY) {
+    try {
+      const giphyRes = await fetch(
+        `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(
+          query
+        )}&limit=24&rating=pg-13`
+      );
+      if (giphyRes.ok) {
+        const data = await giphyRes.json();
+        const gifs = (data.data || []).map((g: any) => ({
+          id: g.id,
+          title: g.title || 'GIF',
+          url: g.images?.original?.url || g.images?.downsized?.url,
+          previewUrl: g.images?.fixed_width_small?.url || g.images?.fixed_height_small?.url || g.images?.original?.url,
+        })).filter((g: any) => g.url && g.previewUrl);
+        return NextResponse.json({ gifs });
+      }
+    } catch (err) {
+      console.error('Giphy API error, falling back to curated list:', err);
+    }
+  }
+
+  // Fallback: filter curated list by title match (existing behavior)
+  const filtered = CURATED_GIFS.filter((g) =>
+    g.title.toLowerCase().includes(query)
+  );
   return NextResponse.json({ gifs: filtered.length ? filtered : CURATED_GIFS.slice(0, 4) });
 }
