@@ -2,8 +2,6 @@ import express from 'express';
 import http from 'http';
 import next from 'next';
 import 'dotenv/config';
-import path from 'path';
-import fs from 'fs';
 import { attachSocketServer } from './server/index';
 import { PresenceService } from './server/services/presence';
 
@@ -26,15 +24,6 @@ async function main() {
       onlineUsers: PresenceService.getOnlineUserIds().length,
     });
   });
-
-  // Serve runtime uploaded files directly from public/uploads with proper headers
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  app.use('/uploads', express.static(uploadsDir, {
-    maxAge: '7d',
-  }));
 
   // Everything else — pages, API routes — goes to Next.js (Express 5 compatible)
   app.use((req, res) => handle(req, res));

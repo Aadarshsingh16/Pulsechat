@@ -5,8 +5,9 @@ export interface ClientToServerEvents {
     payload: {
       conversationId: string;
       clientTempId: string;
-      type: 'TEXT' | 'GIF' | 'STICKER';
+      type: 'TEXT' | 'IMAGE' | 'GIF' | 'STICKER';
       content: string;
+      mediaUrl?: string;
     },
     callback: (response: {
       success: boolean;

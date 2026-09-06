@@ -1,7 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+/**
+ * DEPRECATED: PulseChat media uploads have been migrated to direct Cloudinary
+ * signed uploads (see src/lib/cloudinary.ts and /api/uploads/signature).
+ *
+ * Local-disk and Cloudflare R2 upload pipelines are disabled.
+ */
 
 export interface FileValidationResult {
   isValid: boolean;
@@ -39,69 +41,6 @@ export function validateImageMagicBytes(buffer: Buffer): { isValid: boolean; det
   return { isValid: false };
 }
 
-export interface IObjectStorageService {
-  upload(buffer: Buffer, filename: string, mimeType: string): Promise<string>;
-}
-
-// Cloudflare R2 / S3 compatible Object Storage Adapter
-export class CloudflareR2StorageService implements IObjectStorageService {
-  private endpoint?: string;
-  private bucket?: string;
-  private accessKeyId?: string;
-  private secretAccessKey?: string;
-  private s3Client?: S3Client;
-
-  constructor() {
-    const accountId = process.env.R2_ACCOUNT_ID;
-    this.endpoint = process.env.R2_ENDPOINT || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined);
-    this.bucket = process.env.R2_BUCKET_NAME;
-    this.accessKeyId = process.env.R2_ACCESS_KEY_ID;
-    this.secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-
-    if (this.isConfigured()) {
-      this.s3Client = new S3Client({
-        region: 'auto',
-        endpoint: this.endpoint,
-        credentials: {
-          accessKeyId: this.accessKeyId!,
-          secretAccessKey: this.secretAccessKey!,
-        },
-      });
-    }
-  }
-
-  isConfigured(): boolean {
-    return Boolean(this.endpoint && this.bucket && this.accessKeyId && this.secretAccessKey);
-  }
-
-  async upload(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
-    if (!this.isConfigured() || !this.s3Client || !this.bucket) {
-      throw new Error('R2 Object Storage is not fully configured in environment variables');
-    }
-
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: filename,
-      Body: buffer,
-      ContentType: mimeType,
-    });
-
-    await this.s3Client.send(command);
-
-    const publicBase = process.env.R2_PUBLIC_URL || `https://${this.bucket}.r2.cloudflarestorage.com`;
-    return `${publicBase}/${filename}`;
-  }
-}
-
-let hasLoggedStorageWarning = false;
-
-function warnR2FallbackOnce() {
-  if (!hasLoggedStorageWarning) {
-    hasLoggedStorageWarning = true;
-    console.warn('[Storage] R2 not configured — falling back to local disk storage. Uploaded images will not persist across redeploys.');
-  }
-}
-
 export async function saveMediaFile(
   buffer: Buffer,
   originalFilename: string,
@@ -123,35 +62,6 @@ export async function saveMediaFile(
     throw new Error('File contents do not match genuine image headers (magic bytes verification failed)');
   }
 
-  const ext = path.extname(originalFilename) || '.jpg';
-  const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`;
-
-  // 4. In production or whenever R2 is configured, uploads MUST go to Cloudflare R2
-  const r2Service = new CloudflareR2StorageService();
-  if (r2Service.isConfigured()) {
-    const r2Url = await r2Service.upload(buffer, uniqueName, magicCheck.detectedMime || declaredMimeType);
-    return {
-      url: r2Url,
-      size: buffer.length,
-      mimeType: magicCheck.detectedMime || declaredMimeType,
-    };
-  }
-
-  // If R2 is not configured, log a one-time warning and fall back to local disk
-  warnR2FallbackOnce();
-
-  // Local storage fallback (Note: on Render free tier, files in public/uploads are ephemeral and reset on container restart)
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  const filePath = path.join(uploadsDir, uniqueName);
-  await fs.promises.writeFile(filePath, buffer);
-
-  return {
-    url: `/uploads/${uniqueName}`,
-    size: buffer.length,
-    mimeType: magicCheck.detectedMime || declaredMimeType,
-  };
+  // 4. Local disk and R2 storage pipeline is permanently retired
+  throw new Error('Local disk and R2 storage paths are disabled. PulseChat uses direct Cloudinary signed uploads.');
 }

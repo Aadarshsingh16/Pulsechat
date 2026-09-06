@@ -20,6 +20,43 @@ interface SelectedImageState {
   sizeFormatted: string;
 }
 
+async function uploadImage(file: File): Promise<string> {
+  // 1. Validate client-side first (fail fast, don't waste a request)
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const MAX_SIZE_BYTES = 8 * 1024 * 1024;
+  if (!ALLOWED_TYPES.includes(file.type)) throw new Error('Unsupported file type');
+  if (file.size > MAX_SIZE_BYTES) throw new Error('File too large (max 8MB)');
+
+  // 2. Get a signature from our server
+  const sigRes = await fetch('/api/uploads/signature', { method: 'POST' });
+  if (!sigRes.ok) {
+    const errorData = await sigRes.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to get upload signature');
+  }
+  const { signature, timestamp, folder, apiKey, cloudName } = await sigRes.json();
+
+  // 3. Upload directly to Cloudinary
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('api_key', apiKey);
+  formData.append('timestamp', String(timestamp));
+  formData.append('signature', signature);
+  formData.append('folder', folder);
+
+  const uploadRes = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    { method: 'POST', body: formData }
+  );
+  if (!uploadRes.ok) {
+    const errorData = await uploadRes.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Upload to Cloudinary failed');
+  }
+  const data = await uploadRes.json();
+
+  // 4. data.secure_url is the permanent, persistent image URL
+  return data.secure_url;
+}
+
 export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [showStickers, setShowStickers] = useState(false);
@@ -62,8 +99,8 @@ export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('Image exceeds 5MB upload limit');
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError('Image exceeds 8MB upload limit');
       setTimeout(() => setUploadError(null), 5000);
       return;
     }
@@ -135,35 +172,39 @@ export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
       setIsUploading(true);
       setUploadError(null);
 
-      // 2. Perform upload and pre-visibility moderation
-      const formData = new FormData();
-      formData.append('file', imageToSend.file);
-      formData.append('conversationId', conversationId);
-      formData.append('clientTempId', clientTempId);
-      if (caption) formData.append('content', caption);
-
-      fetch('/api/media/upload', {
-        method: 'POST',
-        body: formData,
-      })
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) {
-            updateMessageStatus(clientTempId, clientTempId, 'FAILED');
-            setUploadError(data.details || data.error || 'Image rejected by moderation policy');
-            setTimeout(() => setUploadError(null), 6000);
-          } else if (data.success && data.message) {
-            updateMessage(clientTempId, {
-              id: data.message.id,
-              mediaUrl: data.message.mediaUrl,
-              status: data.message.status,
-            });
+      // 2. Perform direct Cloudinary signed upload and broadcast via socket
+      uploadImage(imageToSend.file)
+        .then((secureUrl) => {
+          if (socketRef.current) {
+            socketRef.current.emit(
+              'message:send',
+              {
+                conversationId,
+                clientTempId,
+                type: 'IMAGE',
+                content: caption || 'Sent an image',
+                mediaUrl: secureUrl,
+              },
+              (res: any) => {
+                if (res?.success && res.message) {
+                  updateMessage(clientTempId, {
+                    id: res.message.id,
+                    mediaUrl: res.message.mediaUrl || secureUrl,
+                    status: res.message.status,
+                  });
+                } else {
+                  updateMessageStatus(clientTempId, clientTempId, 'FAILED');
+                  setUploadError(res?.error || 'Failed to send image message');
+                  setTimeout(() => setUploadError(null), 5000);
+                }
+              }
+            );
           }
         })
-        .catch((err) => {
-          console.error('Upload network error:', err);
+        .catch((err: any) => {
+          console.error('Cloudinary upload error:', err);
           updateMessageStatus(clientTempId, clientTempId, 'FAILED');
-          setUploadError('Failed to upload image due to network error');
+          setUploadError(err.message || 'Failed to upload image to Cloudinary');
           setTimeout(() => setUploadError(null), 5000);
         })
         .finally(() => {

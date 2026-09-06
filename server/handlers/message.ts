@@ -59,13 +59,14 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
       payload: {
         conversationId: string;
         clientTempId: string;
-        type: 'TEXT' | 'GIF' | 'STICKER';
+        type: 'TEXT' | 'IMAGE' | 'GIF' | 'STICKER';
         content: string;
+        mediaUrl?: string;
       },
       callback
     ) => {
       try {
-        const { conversationId, clientTempId, type = 'TEXT', content } = payload;
+        const { conversationId, clientTempId, type = 'TEXT', content, mediaUrl } = payload;
 
         if (!conversationId || !clientTempId || !content) {
           if (callback) callback({ success: false, error: 'Missing required message parameters' });
@@ -154,7 +155,8 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
             senderId: user.id,
             type,
             content: finalContent,
-            mediaUrl: type === 'GIF' ? content : null,
+            mediaUrl: type === 'GIF' ? content : (mediaUrl || null),
+            thumbnailUrl: mediaUrl || null,
             status: 'SENT',
             isModerated,
             moderationReason,
