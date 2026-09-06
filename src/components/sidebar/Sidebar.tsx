@@ -15,7 +15,7 @@ export function Sidebar() {
 
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { conversations, setConversations, activeConversationId, setActiveConversationId, onlineUserIds } =
+  const { conversations, setConversations, activeConversationId, setActiveConversationId, onlineUserIds, isTypingMap } =
     useChatStore();
 
   const loadConversations = async () => {
@@ -194,7 +194,11 @@ export function Sidebar() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-stone-500">
                     <span className="truncate pr-2">
-                      {conv.lastMessage ? (
+                      {isTypingMap[conv.id]?.isTyping ? (
+                        <span className="text-[#C08426] font-semibold animate-pulse flex items-center gap-1">
+                          <span>{isTypingMap[conv.id]?.username ? `${isTypingMap[conv.id]?.username} is typing...` : 'typing...'}</span>
+                        </span>
+                      ) : conv.lastMessage ? (
                         <span>
                           <span className="font-medium text-stone-600">
                             {conv.lastMessage.senderId === user?.id

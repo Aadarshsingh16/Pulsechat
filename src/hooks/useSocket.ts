@@ -51,9 +51,10 @@ export function useSocket() {
     socket.on('connect', () => {
       console.log('⚡ Connected to PulseChat Socket.IO server');
 
-      // 1. Join active conversation room if open
-      if (activeConversationId) {
-        socket.emit('conversation:join', { conversationId: activeConversationId });
+      // 1. Join active conversation room dynamically from latest store state
+      const currentActive = useChatStore.getState().activeConversationId;
+      if (currentActive) {
+        socket.emit('conversation:join', { conversationId: currentActive });
       }
 
       // 2. Reconnection Reconciliation: settle unconfirmed optimistic messages

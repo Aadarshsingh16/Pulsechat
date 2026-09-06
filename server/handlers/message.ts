@@ -436,26 +436,89 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
     }
   );
 
-  // 6. Ephemeral Typing indicators (protected by room membership)
-  socket.on('typing:start', ({ conversationId }: { conversationId: string }) => {
-    if (!socket.rooms.has(`conversation:${conversationId}`)) return;
+  // 6. Ephemeral Typing indicators (with multicasting to conversation & user rooms)
+  socket.on('typing:start', async ({ conversationId }: { conversationId: string }) => {
+    if (!conversationId) return;
 
-    socket.to(`conversation:${conversationId}`).emit('typing:update', {
-      conversationId,
-      userId: user.id,
-      username: user.displayName || user.username,
-      isTyping: true,
-    });
+    try {
+      const membership = await prisma.conversationParticipant.findUnique({
+        where: {
+          conversationId_userId: {
+            conversationId,
+            userId: user.id,
+          },
+        },
+        include: {
+          conversation: {
+            include: {
+              participants: true,
+            },
+          },
+        },
+      });
+
+      if (!membership) return;
+      socket.join(`conversation:${conversationId}`);
+
+      const payload = {
+        conversationId,
+        userId: user.id,
+        username: user.displayName || user.username,
+        isTyping: true,
+      };
+
+      // Broadcast to room
+      socket.to(`conversation:${conversationId}`).emit('typing:update', payload);
+
+      // Also multicast to participant individual rooms for sidebar & background sync
+      for (const p of membership.conversation.participants) {
+        if (p.userId !== user.id) {
+          io.to(`user:${p.userId}`).emit('typing:update', payload);
+        }
+      }
+    } catch (err) {
+      console.error('Error handling typing:start:', err);
+    }
   });
 
-  socket.on('typing:stop', ({ conversationId }: { conversationId: string }) => {
-    if (!socket.rooms.has(`conversation:${conversationId}`)) return;
+  socket.on('typing:stop', async ({ conversationId }: { conversationId: string }) => {
+    if (!conversationId) return;
 
-    socket.to(`conversation:${conversationId}`).emit('typing:update', {
-      conversationId,
-      userId: user.id,
-      username: user.displayName || user.username,
-      isTyping: false,
-    });
+    try {
+      const membership = await prisma.conversationParticipant.findUnique({
+        where: {
+          conversationId_userId: {
+            conversationId,
+            userId: user.id,
+          },
+        },
+        include: {
+          conversation: {
+            include: {
+              participants: true,
+            },
+          },
+        },
+      });
+
+      if (!membership) return;
+
+      const payload = {
+        conversationId,
+        userId: user.id,
+        username: user.displayName || user.username,
+        isTyping: false,
+      };
+
+      socket.to(`conversation:${conversationId}`).emit('typing:update', payload);
+
+      for (const p of membership.conversation.participants) {
+        if (p.userId !== user.id) {
+          io.to(`user:${p.userId}`).emit('typing:update', payload);
+        }
+      }
+    } catch (err) {
+      console.error('Error handling typing:stop:', err);
+    }
   });
 }

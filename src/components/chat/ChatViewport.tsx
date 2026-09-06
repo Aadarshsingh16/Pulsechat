@@ -20,6 +20,7 @@ export function ChatViewport({ socketRef }: ChatViewportProps) {
     onlineUserIds,
     updateConversationParticipants,
     removeConversation,
+    isTypingMap,
   } = useChatStore();
 
   const [showMembersModal, setShowMembersModal] = useState(false);
@@ -136,7 +137,13 @@ export function ChatViewport({ socketRef }: ChatViewportProps) {
                 )}
               </div>
             <div className="text-[11px] text-stone-400">
-              {activeConv.isGroup ? (
+              {activeConversationId && isTypingMap[activeConversationId]?.isTyping ? (
+                <span className="text-[#C08426] font-semibold animate-pulse">
+                  {isTypingMap[activeConversationId]?.username
+                    ? `${isTypingMap[activeConversationId]?.username} is typing...`
+                    : 'typing...'}
+                </span>
+              ) : activeConv.isGroup ? (
                 <span className="text-stone-500 font-medium">
                   {participantsList.length} members • Click to view
                 </span>

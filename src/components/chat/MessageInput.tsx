@@ -91,6 +91,7 @@ export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
       }
 
       if (!typingTimeoutRef.current) {
+        socketRef.current.emit('conversation:join', { conversationId });
         socketRef.current.emit('typing:start', { conversationId });
       } else {
         clearTimeout(typingTimeoutRef.current);
