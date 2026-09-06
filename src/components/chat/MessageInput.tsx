@@ -76,21 +76,33 @@ export function MessageInput({ socketRef, conversationId }: MessageInputProps) {
 
   // Handle Typing Throttle
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setContent(e.target.value);
+    const val = e.target.value;
+    setContent(val);
 
     if (socketRef.current) {
+      if (!val.trim()) {
+        // If input cleared, stop typing immediately
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = null;
+        }
+        socketRef.current.emit('typing:stop', { conversationId });
+        return;
+      }
+
       if (!typingTimeoutRef.current) {
         socketRef.current.emit('typing:start', { conversationId });
       } else {
         clearTimeout(typingTimeoutRef.current);
       }
 
+      // Keep typing active for 15 seconds after last keystroke to give ample time to switch windows for showcase
       typingTimeoutRef.current = setTimeout(() => {
         if (socketRef.current) {
           socketRef.current.emit('typing:stop', { conversationId });
         }
         typingTimeoutRef.current = null;
-      }, 3000);
+      }, 15000);
     }
   };
 

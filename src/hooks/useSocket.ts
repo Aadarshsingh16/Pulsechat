@@ -89,14 +89,22 @@ export function useSocket() {
       updateMessageStatus(clientTempId, messageId, status, conversationId, userId, lastReadAt);
     });
 
+    const typingTimers: Record<string, NodeJS.Timeout> = {};
+
     socket.on('typing:update', ({ conversationId, username, isTyping }) => {
       setTyping(conversationId, username, isTyping);
 
-      // Auto-expire typing indicator after 4 seconds to prevent stuck state
+      if (typingTimers[conversationId]) {
+        clearTimeout(typingTimers[conversationId]);
+        delete typingTimers[conversationId];
+      }
+
+      // Auto-expire typing indicator after 15 seconds to give plenty of time to switch windows during showcase
       if (isTyping) {
-        setTimeout(() => {
+        typingTimers[conversationId] = setTimeout(() => {
           setTyping(conversationId, username, false);
-        }, 4000);
+          delete typingTimers[conversationId];
+        }, 15000);
       }
     });
 
@@ -136,6 +144,7 @@ export function useSocket() {
     });
 
     return () => {
+      Object.values(typingTimers).forEach(clearTimeout);
       socket.disconnect();
       socketRef.current = null;
     };
