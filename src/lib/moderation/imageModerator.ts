@@ -1,5 +1,3 @@
-import * as tf from '@tensorflow/tfjs';
-import * as nsfwjs from 'nsfwjs';
 import sharp from 'sharp';
 
 export interface ImageModerationResult {
@@ -19,20 +17,20 @@ export interface IImageModerator {
   moderate(buffer: Buffer, mimeType: string): Promise<ImageModerationResult>;
 }
 
-let modelPromise: Promise<nsfwjs.NSFWJS> | null = null;
-function getModel(): Promise<nsfwjs.NSFWJS> {
-  // Load model once into memory and reuse across requests to avoid per-request load overhead
+// Memoized promise for lazy model loading on first image request
+let modelPromise: Promise<any> | null = null;
+
+async function getModel(): Promise<any> {
   if (!modelPromise) {
-    modelPromise = nsfwjs.load();
+    modelPromise = (async () => {
+      console.log('[ServerImageModerator] Initializing NSFWJS model lazily on first visual upload...');
+      const nsfwjs = await import('nsfwjs');
+      const loaded = await nsfwjs.load();
+      console.log('[ServerImageModerator] NSFWJS model loaded and ready for inference.');
+      return loaded;
+    })();
   }
   return modelPromise;
-}
-
-// Warm up model in background on server boot so uploads don't suffer cold-start delays
-if (typeof window === 'undefined') {
-  getModel().catch((err) => {
-    console.warn('[ServerImageModerator] Background model preload notice:', err?.message || err);
-  });
 }
 
 export class ServerImageModerator implements IImageModerator {
@@ -59,8 +57,9 @@ export class ServerImageModerator implements IImageModerator {
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      // 2. Load cached MobileNetV2 NSFWJS classifier
+      // 2. Load cached MobileNetV2 NSFWJS classifier lazily
       const model = await getModel();
+      const tf = await import('@tensorflow/tfjs');
 
       // 3. Construct 3D tensor [224, 224, 3] from raw pixel byte buffer
       const tensor = tf.tensor3d(new Uint8Array(data), [info.height, info.width, info.channels], 'int32');
