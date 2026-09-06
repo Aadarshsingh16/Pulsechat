@@ -111,7 +111,7 @@ export const useChatStore = create<ChatState>((set) => ({
           return {
             ...c,
             lastMessage: message,
-            unreadCount: isCurrentActive ? 0 : c.unreadCount + 1,
+            unreadCount: isCurrentActive ? 0 : (existsIndex >= 0 ? c.unreadCount : c.unreadCount + 1),
             updatedAt: message.createdAt,
           };
         }

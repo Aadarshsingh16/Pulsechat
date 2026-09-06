@@ -291,8 +291,19 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
           callback({ success: true, message: formattedMessage });
         }
 
-        // G. Broadcast to room
+        // G. Broadcast to room and participant user rooms for real-time sidebar & unread badges
         io.to(`conversation:${conversationId}`).emit('message:new', formattedMessage);
+
+        const participants = await prisma.conversationParticipant.findMany({
+          where: { conversationId },
+          select: { userId: true },
+        });
+
+        for (const p of participants) {
+          if (p.userId !== user.id) {
+            io.to(`user:${p.userId}`).emit('message:new', formattedMessage);
+          }
+        }
       } catch (err: any) {
         console.error('Error processing message:send:', err);
         if (callback) {
