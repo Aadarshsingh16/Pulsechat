@@ -5,7 +5,7 @@ export const CURATED_GIFS = [
   { id: '2', title: 'Thumbs Up Approval', url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif', previewUrl: 'https://media.giphy.com/media/111ebonMs90YLu/200w.gif' },
   { id: '3', title: 'Happy Cat Wave', url: 'https://media.giphy.com/media/BzyTuYCmvSORqs1ABM/giphy.gif', previewUrl: 'https://media.giphy.com/media/BzyTuYCmvSORqs1ABM/200w.gif' },
   { id: '4', title: 'Mind Blown', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', previewUrl: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/200w.gif' },
-  { id: '5', title: 'Coding Hacker Fast', url: 'https://media.giphy.com/media/unQ3IJU2RG7DO/giphy.gif', previewUrl: 'https://media.giphy.com/media/unQ3IJU2RG7DO/200w.gif' },
+  { id: '5', title: 'Coding Hacker Fast', url: 'https://media.giphy.com/media/3oEjHWbXcpeKhTktXi/giphy.gif', previewUrl: 'https://media.giphy.com/media/3oEjHWbXcpeKhTktXi/200w.gif' },
   { id: '6', title: 'Applause Bravo', url: 'https://media.giphy.com/media/l4q8cJzGdR9J8w3hS/giphy.gif', previewUrl: 'https://media.giphy.com/media/l4q8cJzGdR9J8w3hS/200w.gif' },
   { id: '7', title: 'Popcorn Excited', url: 'https://media.giphy.com/media/gl0mkIZOW6Nwc/giphy.gif', previewUrl: 'https://media.giphy.com/media/gl0mkIZOW6Nwc/200w.gif' },
   { id: '8', title: 'Laughing Dog', url: 'https://media.giphy.com/media/3oEjHAUOqG3lSS0f1C/giphy.gif', previewUrl: 'https://media.giphy.com/media/3oEjHAUOqG3lSS0f1C/200w.gif' },
